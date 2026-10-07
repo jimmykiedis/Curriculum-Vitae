@@ -11,7 +11,7 @@ export const templates = [
     strengthsDefault: ['Responsável', 'Competente', 'Proativa', 'Audaciosa']
   },
   {
-    id: 'modelo-1-b', name: 'Modelo 1', type: 'Tipo B', description: 'Experiência em destaque',
+    id: 'modelo-1-b', name: 'Modelo 1', type: 'Tipo B', description: 'Experiência e qualificações',
     order: ['personal', 'objective', 'education', 'experience', 'qualifications', 'knowledge', 'strengths'],
     objectiveDefault: 'Pleitear uma oportunidade profissional na empresa, contribuindo com minhas habilidades, conhecimentos e experiências para atender às necessidades do cargo e colaborar com os objetivos da organização.',
     educationDefault: 'Ensino médio completo.',
@@ -20,7 +20,7 @@ export const templates = [
     strengthsDefault: ['Responsável', 'Proativa', 'Facilidade de aprendizagem', 'Facilidade de comunicação e relacionamento interpessoal']
   },
   {
-    id: 'modelo-2-b', name: 'Modelo 2', type: 'Tipo B', description: 'Ideal para início de carreira',
+    id: 'modelo-2-b', name: 'Modelo 2', type: 'Tipo B', description: 'Sem experiência profissional',
     order: ['personal', 'objective', 'education', 'qualifications', 'knowledge', 'strengths'],
     objectiveDefault: 'Pleitear uma oportunidade profissional na empresa, contribuindo com minhas habilidades, conhecimentos e qualificações para atender às necessidades do cargo e colaborar com os objetivos da organização.',
     educationDefault: 'Ensino médio em curso',
@@ -29,7 +29,7 @@ export const templates = [
     strengthsDefault: ['Responsável', 'Proativa', 'Facilidade de aprendizagem', 'Facilidade de comunicação e relacionamento interpessoal']
   },
   {
-    id: 'modelo-3-b', name: 'Modelo 3', type: 'Tipo B', description: 'Experiência e competências',
+    id: 'modelo-3-b', name: 'Modelo 3', type: 'Tipo B', description: 'Com experiência, sem cursos',
     order: ['personal', 'objective', 'education', 'experience', 'knowledge', 'strengths'],
     objectiveDefault: 'Pleitear uma oportunidade profissional na empresa, contribuindo com minhas habilidades, conhecimentos e qualificações para atender às necessidades do cargo e colaborar com os objetivos da organização.',
     educationDefault: 'Ensino médio em curso',
