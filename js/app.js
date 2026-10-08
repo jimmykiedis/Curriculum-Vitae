@@ -1,13 +1,29 @@
 import { templates, sectionTitles, defaultResume } from './templates.js';
 
 const form = document.querySelector('#resume-form');
-const preview = document.querySelector('#resume-source');
+const preview = document.querySelector('#resume-content');
 const picker = document.querySelector('#template-picker');
 const paperWrap = document.querySelector('.paper-wrap');
+const resumeFrame = document.querySelector('#resume-frame');
 let previewPage = 1;
-let paginationVersion = 0;
-let paginationQueue = Promise.resolve();
-const pagedPreviewer = new window.Paged.Previewer();
+let previewPages = 1;
+let frameReady = false;
+let previewVersion = 0;
+let renderedVersion = 0;
+let printRequested = false;
+resumeFrame.addEventListener('load', () => {
+  frameReady = true;
+  resumeFrame.contentWindow.postMessage({ type: 'render-resume', version: previewVersion, template: preview.classList[1], content: preview.innerHTML }, '*');
+});
+resumeFrame.srcdoc = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="css/style.css"><script>window.PagedConfig={auto:false};</script><script src="js/vendor/paged.polyfill.min.js"></script><style>
+html,body{margin:0;padding:0;background:#fff}#source-content{position:absolute;left:-10000px;top:0;width:210mm}#output .pagedjs_pages{display:flex;flex-direction:column;align-items:center;gap:18px}#output .pagedjs_page{display:block;margin:0 auto;background:#fff;box-shadow:0 6px 22px #29362914}
+@media print{html,body{width:210mm;margin:0;padding:0}#output .pagedjs_pages{display:block}#output .pagedjs_page{display:block!important;margin:0 0 0 0!important;transform:none!important;box-shadow:none;break-after:page;page-break-after:always}#output .pagedjs_page:last-child{break-after:auto;page-break-after:auto}}
+</style></head><body><article id="source-content" class="resume-paper"></article><div id="output"></div><script>
+let version=0,queue=Promise.resolve();const source=document.querySelector('#source-content'),output=document.querySelector('#output'),previewer=new Paged.Previewer();
+function fitPages(){output.querySelectorAll('.pagedjs_page').forEach(page=>{const scale=Math.min(1,document.documentElement.clientWidth/page.offsetWidth);page.style.transformOrigin='top center';page.style.transform='scale('+scale+')';page.style.marginBottom=(-page.offsetHeight*(1-scale))+'px'})}
+window.addEventListener('resize',fitPages);window.addEventListener('message',event=>{const data=event.data||{};if(data.type==='render-resume'){version=data.version;const requestedVersion=version;source.className='resume-paper '+data.template;source.innerHTML=data.content;queue=queue.then(async()=>{if(requestedVersion!==version)return;output.replaceChildren();await previewer.preview(source,['css/style.css'],output);if(requestedVersion===version){fitPages();parent.postMessage({type:'resume-pages',version,total:output.querySelectorAll('.pagedjs_page').length},'*')}}).catch(error=>console.error('Falha ao paginar currículo',error))}else if(data.type==='focus-page'){output.querySelectorAll('.pagedjs_page')[data.page-1]?.scrollIntoView({behavior:'smooth',block:'start'})}else if(data.type==='print-resume'){queue.then(()=>window.print())}});
+const marginOverride=document.createElement('style');marginOverride.textContent='@page{margin:0!important}#source-content{display:none!important}';window.addEventListener('beforeprint',()=>document.head.append(marginOverride));window.addEventListener('afterprint',()=>{marginOverride.remove();parent.postMessage({type:'resume-printed'},'*')});
+</script></body></html>`;
 const storageKey = 'curriculo-em-foco-v1';
 let saved = readSaved();
 let selectedTemplate = templates.some(item => item.id === saved.template) ? saved.template : templates[0].id;
@@ -242,24 +258,32 @@ function renderPreview() {
     if (key === 'personal') return content;
     return `<section class="resume-section"><h2>${sectionTitles[key]}</h2>${content}</section>`;
   }).join('');
-  const version = ++paginationVersion;
-  paginationQueue = paginationQueue.then(async () => {
-    if (version !== paginationVersion) return;
-    paperWrap.replaceChildren();
-    await pagedPreviewer.preview(preview, ['css/style.css'], paperWrap);
-    if (version === paginationVersion) updatePageNavigation();
-  }).catch(error => console.error('Não foi possível paginar o currículo.', error));
+  previewVersion++;
+  if (frameReady) {
+    resumeFrame.contentWindow.postMessage({ type: 'render-resume', version: previewVersion, template: template.id, content: preview.innerHTML }, '*');
+  }
 }
 function updatePageNavigation() {
-  const pages = [...paperWrap.querySelectorAll('.pagedjs_page')];
-  const total = Math.max(1, pages.length);
-  previewPage = Math.min(previewPage, total);
-  pages.forEach((page, index) => page.classList.toggle('is-current', index + 1 === previewPage));
+  previewPage = Math.min(previewPage, previewPages);
   document.querySelector('#current-page').textContent = previewPage;
-  document.querySelector('#total-pages').textContent = total;
+  document.querySelector('#total-pages').textContent = previewPages;
   document.querySelector('#previous-page').disabled = previewPage <= 1;
-  document.querySelector('#next-page').disabled = previewPage >= total;
+  document.querySelector('#next-page').disabled = previewPage >= previewPages;
 }
+window.addEventListener('message', event => {
+  if (event.source !== resumeFrame.contentWindow) return;
+  const message = event.data || {};
+  if (message.type === 'resume-pages' && message.version === previewVersion) {
+    renderedVersion = message.version;
+    previewPages = Math.max(1, message.total);
+    updatePageNavigation();
+    if (printRequested) { printRequested = false; resumeFrame.contentWindow.postMessage({ type: 'print-resume' }, '*'); }
+  }
+  if (message.type === 'resume-printed' && offerXmlAfterPrint) {
+    offerXmlAfterPrint = false;
+    saveDialog.showModal();
+  }
+});
 
 picker.addEventListener('click', event => {
   const button = event.target.closest('[data-template]');
@@ -314,16 +338,15 @@ form.addEventListener('click', event => {
 });
 const saveDialog = document.querySelector('#save-dialog');
 let offerXmlAfterPrint = false;
-function printResume() { paginationQueue.then(() => window.print()); }
+function printResume() {
+  printRequested = true;
+  if (frameReady && renderedVersion === previewVersion) {
+    printRequested = false;
+    resumeFrame.contentWindow.postMessage({ type: 'print-resume' }, '*');
+  }
+}
 document.querySelector('#print-button').addEventListener('click', () => { offerXmlAfterPrint = true; printResume(); });
 document.querySelector('#download-button').addEventListener('click', () => { offerXmlAfterPrint = true; printResume(); });
-const printMarginOverride = document.createElement('style');
-printMarginOverride.textContent = '@page { margin: 0 !important; }';
-window.addEventListener('beforeprint', () => document.head.append(printMarginOverride));
-window.addEventListener('afterprint', () => {
-  printMarginOverride.remove();
-  if (offerXmlAfterPrint) { offerXmlAfterPrint = false; saveDialog.showModal(); }
-});
 document.querySelector('#save-xml-button').addEventListener('click', () => { downloadXml(); saveDialog.close(); });
 document.querySelector('#skip-save-button').addEventListener('click', () => saveDialog.close());
 document.querySelector('.dialog-close').addEventListener('click', () => saveDialog.close());
@@ -332,7 +355,7 @@ document.querySelector('#resume-upload').addEventListener('change', event => { i
 function navigatePreviewPage(amount) {
   previewPage += amount;
   updatePageNavigation();
-  paperWrap.querySelectorAll('.pagedjs_page')[previewPage - 1]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  resumeFrame.contentWindow.postMessage({ type: 'focus-page', page: previewPage }, '*');
 }
 document.querySelector('#previous-page').addEventListener('click', () => navigatePreviewPage(-1));
 document.querySelector('#next-page').addEventListener('click', () => navigatePreviewPage(1));
