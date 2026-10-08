@@ -1,10 +1,13 @@
 import { templates, sectionTitles, defaultResume } from './templates.js';
 
 const form = document.querySelector('#resume-form');
-const preview = document.querySelector('#resume-preview');
+const preview = document.querySelector('#resume-source');
 const picker = document.querySelector('#template-picker');
 const paperWrap = document.querySelector('.paper-wrap');
 let previewPage = 1;
+let paginationVersion = 0;
+let paginationQueue = Promise.resolve();
+const pagedPreviewer = new window.Paged.Previewer();
 const storageKey = 'curriculo-em-foco-v1';
 let saved = readSaved();
 let selectedTemplate = templates.some(item => item.id === saved.template) ? saved.template : templates[0].id;
@@ -239,14 +242,19 @@ function renderPreview() {
     if (key === 'personal') return content;
     return `<section class="resume-section"><h2>${sectionTitles[key]}</h2>${content}</section>`;
   }).join('');
-  updatePageNavigation();
+  const version = ++paginationVersion;
+  paginationQueue = paginationQueue.then(async () => {
+    if (version !== paginationVersion) return;
+    paperWrap.replaceChildren();
+    await pagedPreviewer.preview(preview, ['css/style.css'], paperWrap);
+    if (version === paginationVersion) updatePageNavigation();
+  }).catch(error => console.error('Não foi possível paginar o currículo.', error));
 }
 function updatePageNavigation() {
-  const pageHeight = paperWrap.clientHeight || 842;
-  const total = Math.max(1, Math.ceil(preview.scrollHeight / pageHeight));
+  const pages = [...paperWrap.querySelectorAll('.pagedjs_page')];
+  const total = Math.max(1, pages.length);
   previewPage = Math.min(previewPage, total);
-  paperWrap.classList.toggle('has-page-top-gap', previewPage > 1);
-  preview.style.setProperty('--page-offset', `${-((previewPage - 1) * pageHeight) + (previewPage > 1 ? 48 : 0)}px`);
+  pages.forEach((page, index) => page.classList.toggle('is-current', index + 1 === previewPage));
   document.querySelector('#current-page').textContent = previewPage;
   document.querySelector('#total-pages').textContent = total;
   document.querySelector('#previous-page').disabled = previewPage <= 1;
@@ -306,16 +314,27 @@ form.addEventListener('click', event => {
 });
 const saveDialog = document.querySelector('#save-dialog');
 let offerXmlAfterPrint = false;
-document.querySelector('#print-button').addEventListener('click', () => { offerXmlAfterPrint = true; window.print(); });
-document.querySelector('#download-button').addEventListener('click', () => { offerXmlAfterPrint = true; window.print(); });
-window.addEventListener('afterprint', () => { if (offerXmlAfterPrint) { offerXmlAfterPrint = false; saveDialog.showModal(); } });
+function printResume() { paginationQueue.then(() => window.print()); }
+document.querySelector('#print-button').addEventListener('click', () => { offerXmlAfterPrint = true; printResume(); });
+document.querySelector('#download-button').addEventListener('click', () => { offerXmlAfterPrint = true; printResume(); });
+const printMarginOverride = document.createElement('style');
+printMarginOverride.textContent = '@page { margin: 0 !important; }';
+window.addEventListener('beforeprint', () => document.head.append(printMarginOverride));
+window.addEventListener('afterprint', () => {
+  printMarginOverride.remove();
+  if (offerXmlAfterPrint) { offerXmlAfterPrint = false; saveDialog.showModal(); }
+});
 document.querySelector('#save-xml-button').addEventListener('click', () => { downloadXml(); saveDialog.close(); });
 document.querySelector('#skip-save-button').addEventListener('click', () => saveDialog.close());
 document.querySelector('.dialog-close').addEventListener('click', () => saveDialog.close());
 document.querySelector('#upload-button').addEventListener('click', () => document.querySelector('#resume-upload').click());
 document.querySelector('#resume-upload').addEventListener('change', event => { if (event.target.files[0]) importXml(event.target.files[0]); event.target.value = ''; });
-document.querySelector('#previous-page').addEventListener('click', () => { previewPage--; updatePageNavigation(); });
-document.querySelector('#next-page').addEventListener('click', () => { previewPage++; updatePageNavigation(); });
-new ResizeObserver(updatePageNavigation).observe(preview);
+function navigatePreviewPage(amount) {
+  previewPage += amount;
+  updatePageNavigation();
+  paperWrap.querySelectorAll('.pagedjs_page')[previewPage - 1]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+document.querySelector('#previous-page').addEventListener('click', () => navigatePreviewPage(-1));
+document.querySelector('#next-page').addEventListener('click', () => navigatePreviewPage(1));
 document.querySelector('#year').textContent = new Date().getFullYear();
 renderPicker(); renderForm(); renderPreview();
