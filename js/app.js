@@ -50,6 +50,46 @@ function readSaved() {
   try { return JSON.parse(localStorage.getItem(storageKey)) || {}; } catch { return {}; }
 }
 function persist() { localStorage.setItem(storageKey, JSON.stringify({ template: selectedTemplate, resume })); }
+function xmlEscape(value) { return String(value).replace(/[<>&"']/g, char => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[char]); }
+function valueToXml(key, value) {
+  if (Array.isArray(value)) return `<${key} type="array">${value.map(item => valueToXml('item', item)).join('')}</${key}>`;
+  if (value && typeof value === 'object') return `<${key} type="object">${Object.entries(value).map(([child, item]) => valueToXml(child, item)).join('')}</${key}>`;
+  return `<${key}>${xmlEscape(value ?? '')}</${key}>`;
+}
+function makeXml() { return `<?xml version="1.0" encoding="UTF-8"?>\n<curriculo-save version="1"><template>${xmlEscape(selectedTemplate)}</template>${valueToXml('resume', resume)}</curriculo-save>`; }
+function downloadXml() {
+  const blob = new Blob([makeXml()], { type: 'application/xml;charset=utf-8' });
+  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'curriculo.xml'; link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+function xmlToValue(node) {
+  const children = [...node.children];
+  if (node.getAttribute('type') === 'array') return children.map(xmlToValue);
+  if (node.getAttribute('type') === 'object') return Object.fromEntries(children.map(child => [child.tagName, xmlToValue(child)]));
+  if (!children.length) return node.textContent;
+  if (children.every(child => child.tagName === 'item')) return children.map(xmlToValue);
+  return Object.fromEntries(children.map(child => [child.tagName, xmlToValue(child)]));
+}
+function importXml(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const xml = new DOMParser().parseFromString(String(reader.result), 'application/xml');
+      if (xml.querySelector('parsererror') || xml.documentElement.tagName !== 'curriculo-save' || xml.documentElement.getAttribute('version') !== '1') throw new Error();
+      const imported = xmlToValue(xml.documentElement.querySelector(':scope > resume'));
+      const template = xml.documentElement.querySelector(':scope > template')?.textContent;
+      if (!imported || !templates.some(item => item.id === template) || !Array.isArray(imported.experience) || !Array.isArray(imported.qualifications) || !Array.isArray(imported.knowledge) || !Array.isArray(imported.strengths)) throw new Error();
+      resume = { ...structuredClone(defaultResume), ...imported };
+      selectedTemplate = template;
+      resume.birthDate = toISODate(resume.birthDate); resume.educationDate = toISOMonth(resume.educationDate);
+      resume.experience = resume.experience.map(item => ({ ...item, startDate: toISOMonth(item.startDate), endDate: toISOMonth(item.endDate) }));
+      resume.qualifications = resume.qualifications.map(item => ({ ...item, completion: toISOMonth(item.completion) }));
+      educationCustomized = true;
+      renderPicker(); renderForm(); renderPreview(); persist();
+    } catch { alert('Não foi possível carregar este XML. Selecione um arquivo de currículo exportado por este site.'); }
+  };
+  reader.readAsText(file);
+}
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }
@@ -250,6 +290,15 @@ form.addEventListener('click', event => {
     renderForm(); renderPreview(); persist();
   }
 });
-document.querySelector('#print-button').addEventListener('click', () => window.print());
+const saveDialog = document.querySelector('#save-dialog');
+let offerXmlAfterPrint = false;
+document.querySelector('#print-button').addEventListener('click', () => { offerXmlAfterPrint = true; window.print(); });
+document.querySelector('#download-button').addEventListener('click', () => { downloadXml(); offerXmlAfterPrint = false; window.print(); });
+window.addEventListener('afterprint', () => { if (offerXmlAfterPrint) { offerXmlAfterPrint = false; saveDialog.showModal(); } });
+document.querySelector('#save-xml-button').addEventListener('click', () => { downloadXml(); saveDialog.close(); });
+document.querySelector('#skip-save-button').addEventListener('click', () => saveDialog.close());
+document.querySelector('.dialog-close').addEventListener('click', () => saveDialog.close());
+document.querySelector('#upload-button').addEventListener('click', () => document.querySelector('#resume-upload').click());
+document.querySelector('#resume-upload').addEventListener('change', event => { if (event.target.files[0]) importXml(event.target.files[0]); event.target.value = ''; });
 document.querySelector('#year').textContent = new Date().getFullYear();
 renderPicker(); renderForm(); renderPreview();

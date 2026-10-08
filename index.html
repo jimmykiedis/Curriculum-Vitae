@@ -31,6 +31,7 @@
       <div class="form-column">
         <div class="panel-heading">
           <div><p class="eyebrow">PASSO 1</p><h2>Suas informações</h2></div>
+          <button id="upload-button" class="upload-button" type="button">Carregar currículo XML</button>
           <span class="live-label"><span></span> Salvamento local</span>
         </div>
         <p class="panel-intro">Preencha o que fizer sentido para você. O preview acompanha cada alteração.</p>
@@ -41,14 +42,16 @@
       <aside class="preview-column" aria-label="Visualização do currículo">
         <div class="preview-toolbar">
           <div><p class="eyebrow">PASSO 2</p><h2>Seu currículo</h2></div>
-          <button class="print-button" id="print-button" type="button"><span aria-hidden="true">▣</span> Imprimir / Salvar PDF</button>
+          <div class="export-actions"><button class="print-button" id="print-button" type="button">Imprimir</button><button class="download-button" id="download-button" type="button">Baixar PDF</button></div>
         </div>
         <div class="preview-caption"><span class="preview-status"><span></span> Pré-visualização ao vivo</span><span>A4 · 100%</span></div>
         <div class="paper-wrap"><article id="resume-preview" class="resume-paper" aria-live="polite"></article></div>
-        <p class="print-hint">Dica: na janela de impressão, escolha “Salvar como PDF” para baixar seu currículo.</p>
+        <p class="print-hint">Em “Baixar PDF”, escolha “Salvar como PDF” na janela de impressão.</p>
       </aside>
     </section>
   </main>
+  <dialog id="save-dialog" aria-labelledby="save-dialog-title"><button class="dialog-close" type="button" aria-label="Fechar">×</button><h2 id="save-dialog-title">Guarde seu currículo para continuar depois</h2><p>O arquivo XML contém os dados do seu currículo e pode ser usado para preencher o currículo automaticamente no futuro. Assim, quando você precisar atualizar seu currículo, poderá enviar este arquivo novamente e continuar de onde parou, sem precisar preencher tudo novamente.</p><button class="print-button" id="save-xml-button" type="button">Baixar XML do currículo</button><button class="skip-button" id="skip-save-button" type="button">Agora não</button></dialog>
+  <input id="resume-upload" type="file" accept=".xml,text/xml,application/xml" hidden>
   <footer class="site-footer"><span>Feito para ajudar você a dar o próximo passo.</span><span>© <span id="year"></span> Currículo em foco</span></footer>
 </body>
 </html>
