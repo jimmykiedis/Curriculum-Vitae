@@ -39,3 +39,7 @@ main{max-width:1420px;margin:0 auto;padding:52px 5vw 70px}.intro{max-width:740px
 .resume-paper .resume-entry p{margin:0}
 .resume-paper .resume-entry p strong{font-weight:400}
 @media print{@page{@bottom-center{content:none!important}}}
+
+.view-controls{display:flex;align-items:center;gap:14px}.zoom-controls{display:flex;align-items:center;gap:6px;color:#7c837a}.zoom-controls>span:first-child{font-size:9px;font-weight:600;color:#58645a}.zoom-controls button{width:23px;height:23px;border:1px solid #d8e3d9;border-radius:6px;background:#fff;color:#276b52;font:700 15px/1 'DM Sans',sans-serif;cursor:pointer}.zoom-controls button:disabled{opacity:.4;cursor:default}.zoom-controls strong{min-width:33px;text-align:center;color:#58645a;font-size:9px;font-weight:700}
+@media(max-width:620px){.preview-caption{align-items:flex-start;gap:9px}.view-controls{flex-wrap:wrap;justify-content:flex-end;gap:6px 10px}}
+@media(max-width:390px){.preview-caption{flex-direction:column}.view-controls{justify-content:flex-start}.zoom-controls{gap:5px}}

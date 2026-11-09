@@ -10,19 +10,24 @@ let frameReady = false;
 let previewVersion = 0;
 let renderedVersion = 0;
 let printRequested = false;
+let resumeZoom = 100;
+let resumeExpansion = 100;
 resumeFrame.addEventListener('load', () => {
   frameReady = true;
-  resumeFrame.contentWindow.postMessage({ type: 'render-resume', version: previewVersion, template: preview.classList[1], content: preview.innerHTML }, '*');
+  resumeFrame.contentWindow.postMessage({ type: 'render-resume', version: previewVersion, zoom: resumeZoom, expansion: resumeExpansion, template: preview.classList[1], content: preview.innerHTML }, '*');
 });
 resumeFrame.srcdoc = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="css/style.css"><style>
-html,body{margin:0;padding:0;background:#fff}#source-content{position:absolute;left:-10000px;top:0;width:150mm;min-height:0;margin:0;padding:0;box-shadow:none;font-size:11pt;line-height:1.0792}#output{display:flex;flex-direction:column;align-items:center;gap:18px}.resume-page{width:210mm;height:297mm;padding:25mm 30mm;box-sizing:border-box;background:#fff;box-shadow:0 6px 22px #29362914;break-after:page;page-break-after:always}.resume-page:last-child{break-after:auto;page-break-after:auto}.page-content{width:100%;height:100%;display:flex;justify-content:center;overflow:hidden}.page-content .resume-paper{width:100%;max-width:none;height:100%;min-height:0;margin:0;padding:0;box-shadow:none;overflow:hidden;font-size:11pt;line-height:1.0792}.resume-section{break-inside:avoid;page-break-inside:avoid}
-@media print{@page{size:A4;margin:0}html,body{width:210mm;margin:0;padding:0}#output{display:block}.resume-page{display:block!important;margin:0!important;padding:25mm 30mm;box-shadow:none;transform:none!important}.page-content .resume-paper{width:100%!important;max-width:none!important;height:100%!important;min-height:0!important;margin:0!important;padding:0!important;box-shadow:none!important;font-size:11pt!important;line-height:1.0792!important}}
+html,body{margin:0;padding:0;background:#fff}#source-content{position:absolute;left:-10000px;top:0;width:150mm;min-height:0;margin:0;padding:0;box-shadow:none;font-size:11pt;line-height:1.0792}#output{display:flex;flex-direction:column;align-items:center;gap:18px}.resume-page{width:210mm;height:297mm;padding:25mm 30mm;box-sizing:border-box;display:flex;background:#fff;box-shadow:0 6px 22px #29362914;break-after:page;page-break-after:always}.resume-page:last-child{break-after:auto;page-break-after:auto}.page-content{width:100%;flex:1;min-height:0;display:flex;justify-content:center;overflow:hidden}.page-content .resume-paper{width:100%;max-width:none;height:100%;min-height:0;margin:0;padding:0;box-shadow:none;overflow:hidden;font-size:11pt;line-height:1.0792}.resume-section{break-inside:avoid;page-break-inside:avoid}
+@media print{@page{size:A4;margin:0}html,body{width:210mm;margin:0;padding:0}#output{display:block}.resume-page{display:flex!important;margin:0!important;box-shadow:none;transform:none!important}.page-content .resume-paper{width:100%!important;max-width:none!important;height:100%!important;min-height:0!important;margin:0!important;padding:0!important;box-shadow:none!important;font-size:11pt!important;line-height:1.0792!important}}
 </style></head><body><article id="source-content" class="resume-paper"></article><div id="output"></div><script>
-let version=0,queue=Promise.resolve();const source=document.querySelector('#source-content'),output=document.querySelector('#output');
-function makePage(template){const page=document.createElement('div');page.className='resume-page';const area=document.createElement('div');area.className='page-content';const paper=document.createElement('article');paper.className='resume-paper '+template;area.append(paper);page.append(area);output.append(page);return paper}
+let version=0,queue=Promise.resolve(),zoom=100,expansion=100;const source=document.querySelector('#source-content'),output=document.querySelector('#output');
+function horizontalMargin(){return 30-(expansion-100)*0.22}
+function verticalMargin(){return 25-(expansion-100)*0.17}
+function applyLayout(){source.style.width=(210-2*horizontalMargin())+'mm'}
+function makePage(template){const page=document.createElement('div');page.className='resume-page';page.style.padding=verticalMargin()+'mm '+horizontalMargin()+'mm';const area=document.createElement('div');area.className='page-content';const paper=document.createElement('article');paper.className='resume-paper '+template;paper.style.zoom=zoom/100;area.append(paper);page.append(area);output.append(page);return paper}
 function paginate(template){output.replaceChildren();let paper=makePage(template);for(const section of [...source.children]){const item=section.cloneNode(true);paper.append(item);if(paper.scrollHeight>paper.clientHeight+1&&paper.children.length>1){paper.removeChild(item);paper=makePage(template);paper.append(item)}}}
 function fitPages(){output.querySelectorAll('.resume-page').forEach(page=>{const scale=Math.min(1,document.documentElement.clientWidth/page.offsetWidth);page.style.transformOrigin='top center';page.style.transform='scale('+scale+')';page.style.marginBottom=(-page.offsetHeight*(1-scale))+'px'})}
-window.addEventListener('resize',fitPages);window.addEventListener('message',event=>{const data=event.data||{};if(data.type==='render-resume'){version=data.version;const requestedVersion=version;source.className='resume-paper '+data.template;source.innerHTML=data.content;queue=queue.then(()=>{if(requestedVersion!==version)return;paginate(data.template);fitPages();parent.postMessage({type:'resume-pages',version,total:output.querySelectorAll('.resume-page').length},'*')}).catch(error=>console.error('Falha ao paginar curr?culo',error))}else if(data.type==='focus-page'){output.querySelectorAll('.resume-page')[data.page-1]?.scrollIntoView({behavior:'smooth',block:'start'})}else if(data.type==='print-resume'){queue.then(()=>window.print())}});
+window.addEventListener('resize',fitPages);window.addEventListener('message',event=>{const data=event.data||{};if(data.type==='render-resume'){version=data.version;const requestedVersion=version;source.className='resume-paper '+data.template;source.innerHTML=data.content;zoom=data.zoom||100;expansion=data.expansion||100;applyLayout();queue=queue.then(()=>{if(requestedVersion!==version)return;paginate(data.template);fitPages();parent.postMessage({type:'resume-pages',version,total:output.querySelectorAll('.resume-page').length},'*')}).catch(error=>console.error('Falha ao paginar curr?culo',error))}else if(data.type==='set-resume-zoom'){zoom=data.zoom;queue=queue.then(()=>{paginate(source.className.split(' ')[1]);fitPages();parent.postMessage({type:'resume-pages',version,total:output.querySelectorAll('.resume-page').length},'*')})}else if(data.type==='set-resume-expansion'){expansion=data.expansion;applyLayout();queue=queue.then(()=>{paginate(source.className.split(' ')[1]);fitPages();parent.postMessage({type:'resume-pages',version,total:output.querySelectorAll('.resume-page').length},'*')})}else if(data.type==='focus-page'){output.querySelectorAll('.resume-page')[data.page-1]?.scrollIntoView({behavior:'smooth',block:'start'})}else if(data.type==='print-resume'){queue.then(()=>window.print())}});
 window.addEventListener('afterprint',()=>parent.postMessage({type:'resume-printed'},'*'));
 </script></body></html>`;
 const storageKey = 'curriculo-em-foco-v1';
@@ -261,7 +266,7 @@ function renderPreview() {
   }).join('');
   previewVersion++;
   if (frameReady) {
-    resumeFrame.contentWindow.postMessage({ type: 'render-resume', version: previewVersion, template: template.id, content: preview.innerHTML }, '*');
+    resumeFrame.contentWindow.postMessage({ type: 'render-resume', version: previewVersion, zoom: resumeZoom, expansion: resumeExpansion, template: template.id, content: preview.innerHTML }, '*');
   }
 }
 function updatePageNavigation() {
@@ -339,6 +344,24 @@ form.addEventListener('click', event => {
 });
 const saveDialog = document.querySelector('#save-dialog');
 let offerXmlAfterPrint = false;
+function updateResumeZoom(amount) {
+  resumeZoom = Math.max(80, Math.min(130, resumeZoom + amount));
+  document.querySelector('#text-level').textContent = resumeZoom + '%';
+  document.querySelector('#text-out').disabled = resumeZoom <= 80;
+  document.querySelector('#text-in').disabled = resumeZoom >= 130;
+  resumeFrame.contentWindow.postMessage({ type: 'set-resume-zoom', zoom: resumeZoom }, '*');
+}
+function updateResumeExpansion(amount) {
+  resumeExpansion = Math.max(100, Math.min(200, resumeExpansion + amount));
+  document.querySelector('#expand-level').textContent = resumeExpansion + '%';
+  document.querySelector('#expand-out').disabled = resumeExpansion <= 100;
+  document.querySelector('#expand-in').disabled = resumeExpansion >= 200;
+  resumeFrame.contentWindow.postMessage({ type: 'set-resume-expansion', expansion: resumeExpansion }, '*');
+}
+document.querySelector('#text-out').addEventListener('click', () => updateResumeZoom(-5));
+document.querySelector('#text-in').addEventListener('click', () => updateResumeZoom(5));
+document.querySelector('#expand-out').addEventListener('click', () => updateResumeExpansion(-5));
+document.querySelector('#expand-in').addEventListener('click', () => updateResumeExpansion(5));
 function printResume() {
   printRequested = true;
   if (frameReady && renderedVersion === previewVersion) {
