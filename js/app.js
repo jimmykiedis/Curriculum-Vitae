@@ -4,6 +4,8 @@ const form = document.querySelector('#resume-form');
 const preview = document.querySelector('#resume-content');
 const picker = document.querySelector('#template-picker');
 const resumeFrame = document.querySelector('#resume-frame');
+const previewColumn = document.querySelector('.preview-column');
+const editorWorkspace = document.querySelector('#editor');
 let previewPage = 1;
 let previewPages = 1;
 let frameReady = false;
@@ -12,6 +14,32 @@ let renderedVersion = 0;
 let printRequested = false;
 let resumeTextScale = 100;
 let resumeExpansion = 100;
+let lastScrollY = window.scrollY;
+let scrollTicking = false;
+function syncPreviewViewport() {
+  if (frameReady) window.requestAnimationFrame(() => resumeFrame.contentWindow.postMessage({ type: 'fit-preview' }, '*'));
+}
+window.addEventListener('scroll', () => {
+  if (scrollTicking) return;
+  scrollTicking = true;
+  window.requestAnimationFrame(() => {
+    const currentScrollY = window.scrollY;
+    const isDesktop = window.matchMedia('(min-width: 951px)').matches;
+    const hasReachedEditor = currentScrollY >= editorWorkspace.offsetTop;
+    if (!isDesktop || !hasReachedEditor || currentScrollY < lastScrollY - 3) {
+      previewColumn.classList.remove('is-compact');
+    } else if (currentScrollY > lastScrollY + 3) {
+      previewColumn.classList.add('is-compact');
+    }
+    syncPreviewViewport();
+    lastScrollY = currentScrollY;
+    scrollTicking = false;
+  });
+}, { passive: true });
+window.addEventListener('resize', () => {
+  if (!window.matchMedia('(min-width: 951px)').matches) previewColumn.classList.remove('is-compact');
+  syncPreviewViewport();
+});
 resumeFrame.addEventListener('load', () => {
   frameReady = true;
   resumeFrame.contentWindow.postMessage({ type: 'render-resume', version: previewVersion, textScale: resumeTextScale, expansion: resumeExpansion, template: preview.classList[1], content: preview.innerHTML }, '*');
@@ -26,7 +54,8 @@ function verticalMargin(){return 25-(expansion-100)*0.17}
 function applyLayout(){source.style.width=(210-2*horizontalMargin())+'mm'}
 function makePage(template){const page=document.createElement('div');page.className='resume-page';page.style.padding=verticalMargin()+'mm '+horizontalMargin()+'mm';const area=document.createElement('div');area.className='page-content';const paper=document.createElement('article');paper.className='resume-paper '+template;paper.style.zoom=textScale/100;area.append(paper);page.append(area);output.append(page);return paper}
 function paginate(template){output.replaceChildren();let paper=makePage(template);for(const section of [...source.children]){const item=section.cloneNode(true);paper.append(item);if(paper.scrollHeight>paper.clientHeight+1&&paper.children.length>1){paper.removeChild(item);paper=makePage(template);paper.append(item)}}}
-function fitPages(){output.querySelectorAll('.resume-page').forEach(page=>{const scale=Math.min(1,document.documentElement.clientWidth/page.offsetWidth);page.style.transformOrigin='top center';page.style.transform='scale('+scale+')';page.style.marginBottom=(-page.offsetHeight*(1-scale))+'px'})}
+function fitPages(){const pages=[...output.querySelectorAll('.resume-page')],widthScale=document.documentElement.clientWidth/(pages[0]?.offsetWidth||1);pages.forEach(page=>{const scale=Math.min(1,widthScale);page.style.transformOrigin='top center';page.style.transform='scale('+scale+')';page.style.marginBottom=(-page.offsetHeight*(1-scale))+'px'})}
+new ResizeObserver(fitPages).observe(document.documentElement);
 window.addEventListener('resize',fitPages);window.addEventListener('message',event=>{const data=event.data||{};if(data.type==='render-resume'){version=data.version;const requestedVersion=version;source.className='resume-paper '+data.template;source.innerHTML=data.content;textScale=data.textScale||100;expansion=data.expansion||100;applyLayout();queue=queue.then(()=>{if(requestedVersion!==version)return;paginate(data.template);fitPages();parent.postMessage({type:'resume-pages',version,total:output.querySelectorAll('.resume-page').length},'*')}).catch(error=>console.error('Falha ao paginar currículo',error))}else if(data.type==='set-text-scale'){textScale=data.value;queue=queue.then(()=>{paginate(source.className.split(' ')[1]);fitPages();parent.postMessage({type:'resume-pages',version,total:output.querySelectorAll('.resume-page').length},'*')})}else if(data.type==='set-expansion'){expansion=data.value;applyLayout();queue=queue.then(()=>{paginate(source.className.split(' ')[1]);fitPages();parent.postMessage({type:'resume-pages',version,total:output.querySelectorAll('.resume-page').length},'*')})}else if(data.type==='focus-page'){output.querySelectorAll('.resume-page')[data.page-1]?.scrollIntoView({behavior:'smooth',block:'start'})}else if(data.type==='print-resume'){queue.then(()=>window.print())}});
 window.addEventListener('afterprint',()=>parent.postMessage({type:'resume-printed'},'*'));
 </script></body></html>`;
