@@ -12,6 +12,7 @@ let frameReady = false;
 let previewVersion = 0;
 let renderedVersion = 0;
 let printRequested = false;
+let printingFromParent = false;
 let resumeTextScale = 100;
 let resumeExpansion = 100;
 let lastScrollY = window.scrollY;
@@ -312,7 +313,11 @@ window.addEventListener('message', event => {
     renderedVersion = message.version;
     previewPages = Math.max(1, message.total);
     updatePageNavigation();
-    if (printRequested) { printRequested = false; resumeFrame.contentWindow.postMessage({ type: 'print-resume' }, '*'); }
+    if (printRequested) {
+      printRequested = false;
+      if (isChromeOnIOS()) printResumeFromParent();
+      else resumeFrame.contentWindow.postMessage({ type: 'print-resume' }, '*');
+    }
   }
   if (message.type === 'resume-printed' && offerXmlAfterPrint) {
     offerXmlAfterPrint = false;
@@ -323,6 +328,38 @@ window.addEventListener('message', event => {
     if (!section) return;
     section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     section.querySelector('[data-path]')?.focus({ preventScroll: true });
+  }
+});
+
+function isChromeOnIOS() {
+  const ua = navigator.userAgent;
+  return /CriOS/.test(ua) && (/iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+}
+async function printResumeFromParent() {
+  const sourceOutput = resumeFrame.contentDocument?.querySelector('#output');
+  const printOutput = document.querySelector('#ios-print-output');
+  if (!sourceOutput || !sourceOutput.children.length) return false;
+  printOutput.replaceChildren(...[...sourceOutput.children].map(page => {
+    const copy = page.cloneNode(true);
+    copy.style.transform = 'none';
+    copy.style.marginBottom = '0';
+    return copy;
+  }));
+  printingFromParent = true;
+  document.body.classList.add('ios-frame-printing');
+  await document.fonts.ready;
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  window.print();
+  return true;
+}
+window.addEventListener('afterprint', () => {
+  if (!printingFromParent) return;
+  printingFromParent = false;
+  document.body.classList.remove('ios-frame-printing');
+  document.querySelector('#ios-print-output').replaceChildren();
+  if (offerXmlAfterPrint) {
+    offerXmlAfterPrint = false;
+    saveDialog.showModal();
   }
 });
 
@@ -401,7 +438,8 @@ function printResume() {
   printRequested = true;
   if (frameReady && renderedVersion === previewVersion) {
     printRequested = false;
-    resumeFrame.contentWindow.postMessage({ type: 'print-resume' }, '*');
+    if (isChromeOnIOS()) printResumeFromParent();
+    else resumeFrame.contentWindow.postMessage({ type: 'print-resume' }, '*');
   }
 }
 document.querySelector('#print-button').addEventListener('click', () => { offerXmlAfterPrint = true; printResume(); });

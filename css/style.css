@@ -21,11 +21,24 @@ main{max-width:1420px;margin:0 auto;padding:52px 5vw 70px}.intro{max-width:740px
 .page-navigation{display:flex;align-items:center;justify-content:center;gap:15px;margin:0 auto 10px;color:#667267;font-size:11px}.page-navigation button{width:27px;height:27px;border:1px solid #d9e0f5;border-radius:6px;background:#fff;color:#4169e1;font-size:18px;line-height:1;cursor:pointer}.page-navigation button:disabled{opacity:.4;cursor:default}.paper-wrap{position:relative;height:842px;overflow:hidden;background:#fff;box-shadow:0 6px 22px #29362914}.paper-wrap .resume-paper{box-shadow:none;transform:translateY(var(--page-offset,0));transition:transform .2s ease}.paper-wrap.has-page-top-gap:before{content:"";position:absolute;z-index:1;inset:0 0 auto;height:48px;background:#fff}
 
 #resume-content{display:none!important}.paper-wrap iframe{display:block;width:100%;height:100%;min-height:842px;border:0;background:#fff}
+#ios-print-output{display:none}
 
 /* Keep the live preview visible while the user edits the form. */
 @media(min-width:951px){.preview-column{position:sticky;top:16px;max-height:calc(100vh - 32px);display:flex;flex-direction:column}.preview-column .paper-wrap{height:min(842px,calc(100vh - 220px));min-height:300px;flex:0 1 auto}.preview-column .paper-wrap iframe{min-height:0;height:100%}}
 @media(min-width:951px){.preview-column{--preview-collapse-time:.6s}.preview-column .preview-toolbar,.preview-column .preview-caption,.preview-column .page-navigation{max-height:96px;overflow:hidden;opacity:1;transform:translateY(0);transition:max-height var(--preview-collapse-time) ease,opacity var(--preview-collapse-time) ease,transform var(--preview-collapse-time) ease,margin var(--preview-collapse-time) ease,padding var(--preview-collapse-time) ease}.preview-column.is-compact{height:calc(100vh - 32px)}.preview-column.is-compact .preview-toolbar,.preview-column.is-compact .preview-caption,.preview-column.is-compact .page-navigation{max-height:0;opacity:0;transform:translateY(-8px);margin:0;padding-top:0;padding-bottom:0;pointer-events:none}.preview-column.is-compact .paper-wrap{height:auto;min-height:0;flex:1 1 auto}.preview-column.is-compact .paper-wrap iframe{min-height:0;height:100%}}
 @media print{.preview-column{position:static;top:auto;height:auto;max-height:none;display:block}.preview-column .paper-wrap{height:auto;min-height:0}.preview-column .paper-wrap iframe{height:auto;min-height:0}}
+
+/* Chrome on iOS prints the paginated document from the top-level page,
+   avoiding partial rendering of the nested preview frame. */
+@media print{
+  body.ios-frame-printing{margin:0!important;background:#fff!important}
+  body.ios-frame-printing>:not(#ios-print-output){display:none!important}
+  body.ios-frame-printing>#ios-print-output{display:block!important}
+  #ios-print-output .resume-page{display:block!important;position:relative;width:210mm;height:297mm;margin:0!important;padding:25mm 30mm;box-sizing:border-box;overflow:visible;box-shadow:none;transform:none!important;break-after:page;page-break-after:always}
+  #ios-print-output .resume-page:last-child{break-after:auto;page-break-after:auto}
+  #ios-print-output .page-content{display:block;width:auto;height:auto;min-height:0;overflow:visible}
+  #ios-print-output .page-content .resume-paper{display:block;width:100%!important;max-width:none!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;overflow:visible!important;box-shadow:none!important;transform:none!important}
+}
 
 
 /* DOCX reference layout parameters. */
